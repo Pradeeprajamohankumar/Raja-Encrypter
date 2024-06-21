@@ -7,8 +7,8 @@ ENCRYPTION_MARKER = b'ENCRYPTEDFILE'
 def generate_key():
     return Fernet.generate_key()
 
-def load_key(file_path):
-    key_file = file_path + '.key'
+def get_key(file_path):
+    key_file = f"{file_path}.key"
     if os.path.exists(key_file):
         with open(key_file, 'rb') as f:
             return f.read()
@@ -19,14 +19,12 @@ def load_key(file_path):
         return key
 
 def save_key(file_path, key):
-    key_file = file_path + '.key'
-    with open(key_file, 'wb') as f:
+    with open(f"{file_path}.key", 'wb') as f:
         f.write(key)
 
 def is_encrypted(file_path):
     with open(file_path, 'rb') as file:
-        file_data = file.read()
-        return file_data.startswith(ENCRYPTION_MARKER)
+        return file.read().startswith(ENCRYPTION_MARKER)
 
 def encrypt_file(key, file_path):
     if not is_encrypted(file_path):
@@ -43,9 +41,7 @@ def encrypt_file(key, file_path):
         print(f"File {file_path} is already encrypted.")
 
 def is_decrypted(file_path):
-    with open(file_path, 'rb') as file:
-        file_data = file.read()
-        return not file_data.startswith(ENCRYPTION_MARKER)
+    return not is_encrypted(file_path)
 
 def decrypt_file(key, file_path):
     if not is_decrypted(file_path):
@@ -57,60 +53,50 @@ def decrypt_file(key, file_path):
                 file.seek(0)
                 file.write(decrypted_data)
                 file.truncate()
-                key_file = file_path + '.key'
-                if os.path.exists(key_file):
-                    os.remove(key_file)
+                os.remove(f"{file_path}.key")
                 print(f"File {file_path} decrypted successfully.")
             else:
                 print(f"File {file_path} is not encrypted.")
     else:
         print(f"File {file_path} is already decrypted.")
 
-def process_files(key, path, choice):
+def process_files(path, choice):
     if os.path.isdir(path):
-        for root, dirs, files in os.walk(path):
+        for root, _, files in os.walk(path):
             for file in files:
                 file_path = os.path.join(root, file)
-                file_ext = os.path.splitext(file_path)[1]
+                file_ext = os.path.splitext(file_path)[1].lower()
                 if file_ext in SUPPORTED_FORMATS:
                     if choice == 'e':
+                        key = generate_key()
                         encrypt_file(key, file_path)
                     elif choice == 'd':
-                        # Load the specific key for each file during decryption
-                        key = load_key(file_path)
+                        key = get_key(file_path)
                         decrypt_file(key, file_path)
     else:
-        file_ext = os.path.splitext(path)[1]
+        file_ext = os.path.splitext(path)[1].lower()
         if file_ext in SUPPORTED_FORMATS:
             if choice == 'e':
+                key = generate_key()
                 encrypt_file(key, path)
             elif choice == 'd':
-                key = load_key(path)
+                key = get_key(path)
                 decrypt_file(key, path)
         else:
-            print(f"Unsupported file format for file {path}. Supported formats:", ", ".join(SUPPORTED_FORMATS))
+            print(f"Unsupported file format for file {path}. Supported formats: {', '.join(SUPPORTED_FORMATS)}")
 
 def main():
-
     choice = input("Enter 'e' for encryption or 'd' for decryption: ").lower()
     if choice not in ['e', 'd']:
         print("Invalid choice. Please enter 'e' for encryption or 'd' for decryption.")
         return
-
 
     path = input("Enter the file or folder path: ")
     if not os.path.exists(path):
         print("Path not found.")
         return
 
-
-    if choice == 'e':
-        key = generate_key()
-    else:
-        key = None
-
-
-    process_files(key, path, choice)
+    process_files(path, choice)
 
 if __name__ == "__main__":
     main()
