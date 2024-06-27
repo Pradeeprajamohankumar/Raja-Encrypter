@@ -1,7 +1,7 @@
 from cryptography.fernet import Fernet
 import os
 
-SUPPORTED_FORMATS = ['.txt', '.pdf', '.ppt', '.docx', '.doc', '.jpg', '.png', '.jpeg', '.pptx', '.xlsm', '.xls', '.rtf','.HEIC']
+SUPPORTED_FORMATS = ['.txt', '.pdf', '.ppt', '.docx', '.doc', '.jpg', '.png', '.jpeg', '.pptx', '.xlsm', '.xls', '.rtf']
 ENCRYPTION_MARKER = b'ENCRYPTEDFILE'
 
 def generate_key():
@@ -53,7 +53,9 @@ def decrypt_file(key, file_path):
                 file.seek(0)
                 file.write(decrypted_data)
                 file.truncate()
-                os.remove(f"{file_path}.key")
+                key_file = f"{file_path}.key"
+                if os.path.exists(key_file):
+                     os.remove(f"{file_path}.key")
                 print(f"File {file_path} decrypted successfully.")
             else:
                 print(f"File {file_path} is not encrypted.")
