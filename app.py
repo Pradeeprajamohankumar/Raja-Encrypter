@@ -1,7 +1,7 @@
 from cryptography.fernet import Fernet
 import os
 
-SUPPORTED_FORMATS = ['.txt', '.pdf', '.ppt', '.docx', '.doc', '.jpg', '.png', '.jpeg', '.pptx', '.xlsm', '.xls', '.rtf']
+SUPPORTED_FORMATS = ['.txt', '.pdf', '.ppt', '.docx', '.doc', '.jpg', '.png', '.jpeg', '.pptx', '.xlsm', '.xls', '.rtf', '.heic', '.mov']
 ENCRYPTION_MARKER = b'ENCRYPTEDFILE'
 
 def generate_key():
@@ -14,8 +14,7 @@ def get_key(file_path):
             return f.read()
     else:
         key = generate_key()
-        with open(key_file, 'wb') as f:
-            f.write(key)
+        save_key(file_path, key)
         return key
 
 def save_key(file_path, key):
@@ -23,20 +22,25 @@ def save_key(file_path, key):
         f.write(key)
 
 def is_encrypted(file_path):
-    with open(file_path, 'rb') as file:
-        return file.read().startswith(ENCRYPTION_MARKER)
+    try:
+        with open(file_path, 'rb') as file:
+            return file.read(len(ENCRYPTION_MARKER)) == ENCRYPTION_MARKER
+    except Exception as e:
+        print(f"Error reading file {file_path}: {e}")
+        return False
 
 def encrypt_file(key, file_path):
     if not is_encrypted(file_path):
-        fernet = Fernet(key)
-        with open(file_path, 'rb+') as file:
-            file_data = file.read()
+        try:
+            fernet = Fernet(key)
+            with open(file_path, 'rb') as file:
+                file_data = file.read()
             encrypted_data = ENCRYPTION_MARKER + fernet.encrypt(file_data)
-            file.seek(0)
-            file.write(encrypted_data)
-            file.truncate()
-        print(f"File {file_path} encrypted successfully.")
-        save_key(file_path, key)
+            with open(file_path, 'wb') as file:
+                file.write(encrypted_data)
+            print(f"File {file_path} encrypted successfully.")
+        except Exception as e:
+            print(f"Error encrypting file {file_path}: {e}")
     else:
         print(f"File {file_path} is already encrypted.")
 
@@ -45,20 +49,22 @@ def is_decrypted(file_path):
 
 def decrypt_file(key, file_path):
     if not is_decrypted(file_path):
-        fernet = Fernet(key)
-        with open(file_path, 'rb+') as file:
-            file_data = file.read()
+        try:
+            fernet = Fernet(key)
+            with open(file_path, 'rb') as file:
+                file_data = file.read()
             if file_data.startswith(ENCRYPTION_MARKER):
                 decrypted_data = fernet.decrypt(file_data[len(ENCRYPTION_MARKER):])
-                file.seek(0)
-                file.write(decrypted_data)
-                file.truncate()
+                with open(file_path, 'wb') as file:
+                    file.write(decrypted_data)
                 key_file = f"{file_path}.key"
                 if os.path.exists(key_file):
-                     os.remove(f"{file_path}.key")
+                    os.remove(key_file)
                 print(f"File {file_path} decrypted successfully.")
             else:
-                print(f"File {file_path} is not encrypted.")
+                print(f"File {file_path} does not have the correct encryption marker.")
+        except Exception as e:
+            print(f"Error decrypting file {file_path}: {e}")
     else:
         print(f"File {file_path} is already decrypted.")
 
@@ -69,20 +75,18 @@ def process_files(path, choice):
                 file_path = os.path.join(root, file)
                 file_ext = os.path.splitext(file_path)[1].lower()
                 if file_ext in SUPPORTED_FORMATS:
+                    key = get_key(file_path)
                     if choice == 'e':
-                        key = generate_key()
                         encrypt_file(key, file_path)
                     elif choice == 'd':
-                        key = get_key(file_path)
                         decrypt_file(key, file_path)
     else:
         file_ext = os.path.splitext(path)[1].lower()
         if file_ext in SUPPORTED_FORMATS:
+            key = get_key(path)
             if choice == 'e':
-                key = generate_key()
                 encrypt_file(key, path)
             elif choice == 'd':
-                key = get_key(path)
                 decrypt_file(key, path)
         else:
             print(f"Unsupported file format for file {path}. Supported formats: {', '.join(SUPPORTED_FORMATS)}")
